@@ -463,6 +463,7 @@ def test_rbm(learning_rate=0.1, training_epochs=15,
     pretraining_time = (end_time - start_time) - plotting_time
 
     print ('Training took %f minutes' % (pretraining_time / 60.))
+    
     # end-snippet-5 start-snippet-6
     #################################
     #     Sampling from the RBM     #
