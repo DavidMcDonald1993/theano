@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[2]:
 
 # from __future__ import division
 
@@ -16,7 +16,7 @@ from keras import objectives
 from keras.datasets import mnist, cifar100
 
 
-# In[77]:
+# In[3]:
 
 #train vae model on mnist data
 (x_train, y_train), (x_test, y_test) = cifar100.load_data()
@@ -37,7 +37,7 @@ x_train = x_train.reshape((len(x_train), np.prod(x_train.shape[1:])))
 x_test = x_test.reshape((len(x_test), np.prod(x_test.shape[1:])))
 
 
-# In[78]:
+# In[4]:
 
 ##use the sampled latent points to generate new latent points z in the latent space
 def sampling(args):
@@ -56,7 +56,7 @@ def vae_loss(x, x_decoded_mean):
     return xent_loss + kl_loss
 
 
-# In[79]:
+# In[5]:
 
 ##encoder network to map real inputs to latent space
 x = Input(batch_shape=(batch_size, original_dim))
@@ -69,13 +69,13 @@ z_mean = Dense(latent_dim)(h[-1])
 z_log_var = Dense(latent_dim)(h[-1])
 
 
-# In[80]:
+# In[6]:
 
 #generate latent points (lambda function layer)
 z = Lambda(sampling, output_shape=(latent_dim,))([z_mean, z_log_var])
 
 
-# In[81]:
+# In[7]:
 
 ##map sampled latent points back to reconstructed points
 # we instantiate these layers separately so as to reuse them later
@@ -91,7 +91,7 @@ decoder_mean = Dense(original_dim, activation='sigmoid')
 # x_decoded_mean = decoder_mean(h_decoded)
 
 
-# In[82]:
+# In[8]:
 
 def h_apply(h_l, x):
 #     y = [x]
@@ -105,7 +105,7 @@ def h_apply(h_l, x):
 x_decoded_mean = decoder_mean(h_apply(h_decoded, z))
 
 
-# In[83]:
+# In[9]:
 
 '''
 So far we have generated three models
