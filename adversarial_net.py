@@ -23,15 +23,15 @@ from keras import objectives
 from keras.datasets import mnist, cifar100
 
 
-# In[24]:
+# In[2]:
 
 # Data params
 data_mean = 4
 data_stddev = 1.25
 
 # Model params
-g_input_size = 100     # Random noise dimension coming into generator, per output vector
-g_hidden_size = 196   # Generator complexity
+g_input_size = 1     # Random noise dimension coming into generator, per output vector
+g_hidden_size = 49  # Generator complexity
 g_output_size = 100    # size of generated output vector
 
 d_input_size = 100  # Minibatch size - cardinality of distributions
@@ -40,16 +40,12 @@ d_output_size = 1    # Single dimension for 'real' vs. 'fake'
 
 minibatch_size = d_input_size
 
-d_learning_rate = 2e-4  # 2e-4
-g_learning_rate = 2e-4
-optim_betas = (0.9, 0.999)
-num_epochs = 500000
-print_interval = 200
+num_epochs = 50000
 d_steps = 1  # 'k' steps in the original GAN paper. Can put the discriminator on higher training freq than generator
 g_steps = 1
 
 
-# In[25]:
+# In[3]:
 
 #parameter settings
 batch_size = 128
@@ -62,28 +58,28 @@ nb_pool = 2
 nb_conv = 3
 
 
-# In[26]:
+# In[4]:
 
 def get_distribution_sampler(mu, sigma):
 #     return lambda n : K.random_normal(mean=mu, std=sigma, shape=(1, n))
     return lambda m, n : np.random.normal(mu, sigma, size=(m, n)).astype("float32")
 
 
-# In[27]:
+# In[5]:
 
 def get_generator_input_sampler():
 #     return lambda m, n: K.random_uniform(shape=(m, n))
     return lambda m, n: np.random.rand(m, n).astype("float32")
 
 
-# In[28]:
+# In[6]:
 
 #samplers for data distribution
 gi_sampler = get_generator_input_sampler()
 d_sampler = get_distribution_sampler(data_mean, data_stddev)
 
 
-# In[29]:
+# In[7]:
 
 class Generator:
     
@@ -93,17 +89,31 @@ class Generator:
         self.model.add(Dense(hidden_size, activation = "elu"))
 #         self.model.add(Dense(hidden_size, activation = "elu"))
 #         self.model.add(Dense(output_size, activation = "linear"))
-        self.model.add(Reshape((1, 14, 14)))
-        self.model.add(UpSampling2D(size=(2, 2)))
+        self.model.add(Reshape((1, 7, 7)))
+#         self.model.add(UpSampling2D(size=(2, 2)))
         self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
                               activation="elu", data_format="channels_first"))
+        self.model.add(Dropout(0.5))
+        self.model.add(UpSampling2D(size=(2, 2)))
+
         self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
                       activation="elu", data_format="channels_first"))
+        self.model.add(Dropout(0.5))
+#         self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
+#               activation="elu", data_format="channels_first"))
+#         self.model.add(Dropout(0.5))
+        self.model.add(UpSampling2D(size=(2, 2)))
+        self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
+          activation="elu", data_format="channels_first"))
+        self.model.add(Dropout(0.5))
+        self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
+          activation="elu", data_format="channels_first"))
+        self.model.add(Dropout(0.5))
         self.model.add(Conv2D(filters=1, kernel_size=(3, 3), padding="same", use_bias=True,
                               activation="sigmoid", data_format="channels_first"))
 
 
-# In[30]:
+# In[8]:
 
 class Discriminator:
     
@@ -112,8 +122,17 @@ class Discriminator:
 #         self.model.add(Dense(hidden_size, input_shape = (input_size,), activation = "elu"))
         self.model.add(Conv2D(filters=32, kernel_size=3, padding="same", use_bias=True,
                                      input_shape=(1, img_rows, img_cols), activation="elu", data_format="channels_first"))
+        self.model.add(Dropout(0.5))
         self.model.add(Conv2D(filters=32, kernel_size=(3, 3),
                                      activation="elu", data_format="channels_first"))
+        self.model.add(Dropout(0.5))
+        self.model.add(MaxPooling2D(pool_size=(2, 2)))
+        self.model.add(Conv2D(filters=32, kernel_size=3, padding="same", use_bias=True,
+                                     activation="elu", data_format="channels_first"))
+        self.model.add(Dropout(0.5))
+        self.model.add(Conv2D(filters=32, kernel_size=(3, 3),
+                                     activation="elu", data_format="channels_first"))
+        self.model.add(Dropout(0.5))
         self.model.add(MaxPooling2D(pool_size=(2, 2)))
         self.model.add(Flatten())
         self.model.add(Dense(hidden_size, activation = "elu"))
@@ -123,7 +142,7 @@ class Discriminator:
         self.model.compile(**kwargs)
 
 
-# In[31]:
+# In[9]:
 
 class GeneratorAndDiscriminator:
     
@@ -136,13 +155,13 @@ class GeneratorAndDiscriminator:
         
 
 
-# In[32]:
+# In[18]:
 
 def print_progress(epoch, epochs, start_time):
     
     bar_length = 50
     
-    progress_bar = "[" + "=" * int(bar_length * epoch / epochs) + ">" + "-" * int(bar_length * (epochs - epoch) / epochs) + "]"
+    progress_bar = "[" + "=" * int(bar_length * epoch / epochs) +     ">" + "-" * int(bar_length * (epochs - epoch) / epochs) + "]"
     
     time_taken = (time() - start_time)
     
@@ -152,12 +171,13 @@ def print_progress(epoch, epochs, start_time):
     mins = np.floor(secs / 60)
     secs -= mins * 60
     
-    sys.stdout.write("\r" + progress_bar + 
-                     " Epoch {}/{} ETA: {}h {}m {}s".format(epoch, epochs, hours, mins, secs) + " " * 10)
+    sys.stdout.write("\r" + "Epoch {}/{} ".format(epoch, epochs) + progress_bar + 
+                     " {}% ETA: {}h {}m {}s".format(int(epoch * 100 / epochs), int(hours), int(mins), int(secs)) + 
+                     " " * 10)
     sys.stdout.flush()
 
 
-# In[33]:
+# In[11]:
 
 #construct discriminator
 D = Discriminator(d_input_size, d_hidden_size, d_output_size)
@@ -166,25 +186,25 @@ D = Discriminator(d_input_size, d_hidden_size, d_output_size)
 D.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 
-# In[34]:
+# In[12]:
 
 #construct generator
 G = Generator(g_input_size, g_hidden_size, g_output_size)
 
 #compile G
-G.model.compile(optimizer='sgd', loss='binary_crossentropy', metrics=['accuracy'])
+G.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 
-# In[35]:
+# In[13]:
 
 ##generator and discriminator
 GD = GeneratorAndDiscriminator(G.model, D.model)
 
 #compile GD
-GD.model.compile(optimizer='sgd', loss='binary_crossentropy', metrics=['accuracy'])
+GD.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 
-# In[36]:
+# In[14]:
 
 ##load mnist data
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -203,7 +223,7 @@ y_test = np_utils.to_categorical(y_test, nb_classes)
 num_patterns = len(x_train)
 
 
-# In[37]:
+# In[15]:
 
 # %%time
 
@@ -256,21 +276,21 @@ for epoch in range(1, num_epochs+1):
 print "\nDONE"
 
 
-# In[39]:
+# In[19]:
 
 i = 5
 plt.imshow(x_train[i, 0])
 plt.show()
 
 
-# In[40]:
+# In[20]:
 
-gen_input = gi_sampler(1000, g_input_size)
+gen_input = gi_sampler(1, g_input_size)
 forgery = G.model.predict(gen_input)
 
 # print np.mean(forgery)
 
-i = 5
+i = 0
 
 plt.imshow(forgery[i ,0])
 plt.show()
