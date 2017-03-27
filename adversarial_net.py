@@ -40,7 +40,7 @@ d_output_size = 1    # Single dimension for 'real' vs. 'fake'
 
 minibatch_size = d_input_size
 
-num_epochs = 50000
+num_epochs = 500000
 d_steps = 1  # 'k' steps in the original GAN paper. Can put the discriminator on higher training freq than generator
 g_steps = 1
 
@@ -155,7 +155,7 @@ class GeneratorAndDiscriminator:
         
 
 
-# In[18]:
+# In[10]:
 
 def print_progress(epoch, epochs, start_time):
     
