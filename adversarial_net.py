@@ -23,7 +23,7 @@ from keras import objectives
 from keras.datasets import mnist, cifar100
 
 
-# In[2]:
+# In[23]:
 
 # Data params
 data_mean = 4
@@ -40,7 +40,7 @@ d_output_size = 1    # Single dimension for 'real' vs. 'fake'
 
 minibatch_size = d_input_size
 
-num_epochs = 500000
+num_epochs = 5000
 d_steps = 1  # 'k' steps in the original GAN paper. Can put the discriminator on higher training freq than generator
 g_steps = 1
 
@@ -79,7 +79,7 @@ gi_sampler = get_generator_input_sampler()
 d_sampler = get_distribution_sampler(data_mean, data_stddev)
 
 
-# In[7]:
+# In[14]:
 
 class Generator:
     
@@ -87,33 +87,33 @@ class Generator:
         self.model = Sequential()
         self.model.add(Dense(hidden_size, input_shape = (input_size,), activation = "elu"))
         self.model.add(Dense(hidden_size, activation = "elu"))
-#         self.model.add(Dense(hidden_size, activation = "elu"))
-#         self.model.add(Dense(output_size, activation = "linear"))
-        self.model.add(Reshape((1, 7, 7)))
-#         self.model.add(UpSampling2D(size=(2, 2)))
-        self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
-                              activation="elu", data_format="channels_first"))
-        self.model.add(Dropout(0.5))
-        self.model.add(UpSampling2D(size=(2, 2)))
-
-        self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
-                      activation="elu", data_format="channels_first"))
-        self.model.add(Dropout(0.5))
+        self.model.add(Dense(hidden_size, activation = "elu"))
+        self.model.add(Dense(img_rows * img_cols, activation = "linear"))
+        self.model.add(Reshape((1, img_rows, img_cols)))
+# #         self.model.add(UpSampling2D(size=(2, 2)))
 #         self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
-#               activation="elu", data_format="channels_first"))
+#                               activation="elu", data_format="channels_first"))
 #         self.model.add(Dropout(0.5))
-        self.model.add(UpSampling2D(size=(2, 2)))
-        self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
-          activation="elu", data_format="channels_first"))
-        self.model.add(Dropout(0.5))
-        self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
-          activation="elu", data_format="channels_first"))
-        self.model.add(Dropout(0.5))
-        self.model.add(Conv2D(filters=1, kernel_size=(3, 3), padding="same", use_bias=True,
-                              activation="sigmoid", data_format="channels_first"))
+#         self.model.add(UpSampling2D(size=(2, 2)))
+
+#         self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
+#                       activation="elu", data_format="channels_first"))
+#         self.model.add(Dropout(0.5))
+# #         self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
+# #               activation="elu", data_format="channels_first"))
+# #         self.model.add(Dropout(0.5))
+#         self.model.add(UpSampling2D(size=(2, 2)))
+#         self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
+#           activation="elu", data_format="channels_first"))
+#         self.model.add(Dropout(0.5))
+#         self.model.add(Conv2D(filters=32, kernel_size=(3, 3), padding="same", use_bias=True,
+#           activation="elu", data_format="channels_first"))
+#         self.model.add(Dropout(0.5))
+#         self.model.add(Conv2D(filters=1, kernel_size=(3, 3), padding="same", use_bias=True,
+#                               activation="sigmoid", data_format="channels_first"))
 
 
-# In[8]:
+# In[15]:
 
 class Discriminator:
     
@@ -142,7 +142,7 @@ class Discriminator:
         self.model.compile(**kwargs)
 
 
-# In[9]:
+# In[16]:
 
 class GeneratorAndDiscriminator:
     
@@ -155,7 +155,7 @@ class GeneratorAndDiscriminator:
         
 
 
-# In[10]:
+# In[17]:
 
 def print_progress(epoch, epochs, start_time):
     
@@ -177,7 +177,7 @@ def print_progress(epoch, epochs, start_time):
     sys.stdout.flush()
 
 
-# In[11]:
+# In[18]:
 
 #construct discriminator
 D = Discriminator(d_input_size, d_hidden_size, d_output_size)
@@ -186,7 +186,7 @@ D = Discriminator(d_input_size, d_hidden_size, d_output_size)
 D.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 
-# In[12]:
+# In[19]:
 
 #construct generator
 G = Generator(g_input_size, g_hidden_size, g_output_size)
@@ -195,7 +195,7 @@ G = Generator(g_input_size, g_hidden_size, g_output_size)
 G.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 
-# In[13]:
+# In[20]:
 
 ##generator and discriminator
 GD = GeneratorAndDiscriminator(G.model, D.model)
@@ -204,7 +204,7 @@ GD = GeneratorAndDiscriminator(G.model, D.model)
 GD.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 
-# In[14]:
+# In[21]:
 
 ##load mnist data
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -223,7 +223,7 @@ y_test = np_utils.to_categorical(y_test, nb_classes)
 num_patterns = len(x_train)
 
 
-# In[15]:
+# In[24]:
 
 # %%time
 
@@ -239,17 +239,17 @@ for epoch in range(1, num_epochs+1):
     
     for d_step in range(d_steps):
         
-        #train D on real data
+        #get real data
 #         d_real_data = d_sampler(1, d_input_size)
         d_real_data = np.expand_dims(x_train[np.random.randint(num_patterns)], axis=0)
-#         d_real_data = x_train
         d_real_targets = np.ones(n)
         
-        #train D on fake data
+        #generate fake data
         d_gen_data = gi_sampler(n, g_input_size)
         d_fake_data = G.model.predict(d_gen_data)
         d_fake_targets = np.zeros(n)
         
+        #combine real and fake data
         d_data = np.append(d_real_data, d_fake_data, axis=0)
         d_targets = np.append(d_real_targets, d_fake_targets)
 
@@ -276,14 +276,14 @@ for epoch in range(1, num_epochs+1):
 print "\nDONE"
 
 
-# In[19]:
+# In[25]:
 
 i = 5
 plt.imshow(x_train[i, 0])
 plt.show()
 
 
-# In[20]:
+# In[26]:
 
 gen_input = gi_sampler(1, g_input_size)
 forgery = G.model.predict(gen_input)
