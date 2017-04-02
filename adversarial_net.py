@@ -1,13 +1,13 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[72]:
 
 from __future__ import division
 
 from time import time
-import sys
-import curses
+from sys import stdout
+import os
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,7 +24,7 @@ from keras import objectives
 from keras.datasets import mnist, cifar100
 
 
-# In[10]:
+# In[110]:
 
 class Generator:
     
@@ -36,13 +36,16 @@ class Generator:
         self.model.add(Conv2D(filters=32, kernel_size=(5, 5), padding="same", use_bias=True,
                       activation="tanh", data_format="channels_first"))
         self.model.add(UpSampling2D(size=(2, 2)))
-        self.model.add(Conv2D(filters=16, kernel_size=(5, 5), padding="same", use_bias=True,
+        self.model.add(Conv2D(filters=32, kernel_size=(5, 5), padding="same", use_bias=True,
                       activation="tanh", data_format="channels_first"))
         self.model.add(UpSampling2D(size=(2, 2)))
-        self.model.add(Conv2D(filters=1, kernel_size=(3, 3), padding="same", use_bias=True,
+        self.model.add(Conv2D(filters=1, kernel_size=(5, 5), padding="same", use_bias=True,
                       activation="tanh", data_format="channels_first"))
         
-    def compileModel(self, **kwargs):
+    def get_model(self):
+        return self.model
+        
+    def compile_model(self, **kwargs):
         self.model.compile(**kwargs)
         
     def predict(self, X):
@@ -50,9 +53,15 @@ class Generator:
         
     def train_on_batch(self, **kwargs):
         return self.model.train_on_batch(**kwargs)
+    
+    def save_weights(self, file):
+        self.model.save_weights(file)
+        
+    def load_weights(self, file):
+        self.model.load_weights(file)
 
 
-# In[11]:
+# In[117]:
 
 class Discriminator:
     
@@ -61,13 +70,17 @@ class Discriminator:
         self.model.add(Conv2D(filters=32, kernel_size=5, padding="same", use_bias=True,
                                      input_shape=(1, img_rows, img_cols), activation="tanh", data_format="channels_first"))
         self.model.add(MaxPooling2D(pool_size=(2, 2)))
-        self.model.add(Conv2D(filters=16, kernel_size=5, padding="same", use_bias=True,
+        self.model.add(Conv2D(filters=32, kernel_size=5, padding="same", use_bias=True,
                               activation="tanh", data_format="channels_first"))
         self.model.add(MaxPooling2D(pool_size=(2, 2)))
         self.model.add(Flatten())
+        self.model.add(Dense(64 * 7 * 7, activation="tanh"))
         self.model.add(Dense(output_size, activation = "sigmoid"))
+        
+    def get_model(self):
+        return self.model
     
-    def compileModel(self, **kwargs):
+    def compile_model(self, **kwargs):
         self.model.compile(**kwargs)
         
     def predict(self, X):
@@ -78,9 +91,15 @@ class Discriminator:
     
     def trainable(self, trainable):
         self.model.trainable = trainable
+    
+    def save_weights(self, file):
+        self.model.save_weights(file)
+        
+    def load_weights(self, file):
+        self.model.load_weights(file)
 
 
-# In[4]:
+# In[118]:
 
 class GeneratorAndDiscriminator:
     
@@ -89,7 +108,10 @@ class GeneratorAndDiscriminator:
         self.model.add(generator)
         self.model.add(discriminator)
         
-    def compileModel(self, **kwargs):
+    def get_model(self):
+        return self.model
+        
+    def compile_model(self, **kwargs):
         self.model.compile(**kwargs)
         
     def predict(self, X):
@@ -99,9 +121,9 @@ class GeneratorAndDiscriminator:
         return self.model.train_on_batch(X, Y)
 
 
-# In[14]:
+# In[119]:
 
-def print_progress(stdscr, epoch, epochs, minibatch, minibatches, start_time, g_loss, d_loss):
+def print_progress(epoch, epochs, minibatch, minibatches, start_time, g_loss, d_loss):
     
     bar_length = 50
     
@@ -109,7 +131,7 @@ def print_progress(stdscr, epoch, epochs, minibatch, minibatches, start_time, g_
     
     time_taken = (time() - start_time)
     
-    minibatches_complete = epoch * minibatches + minibatch
+    minibatches_complete = epoch * minibatches + minibatch + 1
     total_minibatches = epochs * minibatches
     
     secs = np.ceil(time_taken * total_minibatches / minibatches_complete - time_taken)
@@ -118,22 +140,14 @@ def print_progress(stdscr, epoch, epochs, minibatch, minibatches, start_time, g_
     mins = np.floor(secs / 60)
     secs -= mins * 60
     
-    stdscr.addstr(0, 0 , "Epoch: {}/{} minibatch: {}/{} ".format(epoch, epochs, minibatch, minibatches) + 
-                  progress_bar + 
-                  " {}% ETA: {}h {}m {}s".format(int(epoch * 100 / epochs), int(hours), int(mins), int(secs)))
-    stdscr.addstr(1, 0, "g_loss: {} ".format(g_loss[0]) + "g_acc: {} ".format(g_loss[1]) + 
-                     "d_loss: {} ".format(d_loss[0]) + "d_acc: {}".format(d_loss[1]))
-    stdscr.refresh()
+    stdout.write("\r" + "Epoch: {}/{} Minibatch: {}/{} ".format(epoch, epochs, minibatch, minibatches) + 
+#                   progress_bar + 
+                  "{}% ETA: {}h {}m {}s ".format(int(epoch * 100 / epochs), int(hours), int(mins), int(secs)) + 
+                 "g_loss: {} ".format(g_loss[0]) + "d_loss: {} ".format(d_loss[0]))
+    stdout.flush()
 
 
-# In[22]:
-
-for i in range(100):
-    stdscr.addstr(0, 0 , "Epoch: {}/{}".format(i, 100))
-    stdscr.refresh()
-
-
-# In[15]:
+# In[120]:
 
 # Model params
 g_input_size = 100    # Random noise dimension coming into generator, per output vector
@@ -144,7 +158,7 @@ nb_classes = 10
 img_rows, img_cols = 28, 28
 
 
-# In[16]:
+# In[121]:
 
 ##load mnist data
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -162,7 +176,7 @@ x_test = (x_test - 255 / 2) / (255 / 2)
 y_train = np_utils.to_categorical(y_train, nb_classes)
 y_test = np_utils.to_categorical(y_test, nb_classes)
 
-num_epochs = 10
+num_epochs = 100
 d_steps = 1 # 'k' steps in the original GAN paper. Can put the discriminator on higher training freq than generator
 g_steps = 1
 
@@ -173,48 +187,60 @@ num_patterns = len(x_train)
 num_minibatches = int(num_patterns / minibatch_size)
 
 
-# In[17]:
+# In[122]:
 
 #construct generator
 G = Generator(g_input_size)
 
-#compile G
-G.compileModel(optimizer='sgd', loss='binary_crossentropy', metrics=['accuracy'])
-
 #construct discriminator
-D = Discriminator( d_output_size)
-
-#compile D
-D.compileModel(optimizer='sgd', loss='binary_crossentropy', metrics=['accuracy'])
+D = Discriminator(d_output_size)
 
 ##generator and discriminator
-GD = GeneratorAndDiscriminator(G.model, D.model)
+GD = GeneratorAndDiscriminator(G.get_model(), D.get_model())
+
+##weight directory
+weight_dir = "mnist_weights"
+if not os.path.isdir(weight_dir):
+    os.mkdir(weight_dir)
+    
+##progress file
+loss_file = os.path.join(weight_dir, "progress.txt")
+
+##load weights
+G_weight_file = os.path.join(weight_dir, "weights_G.h5")
+D_weight_file = os.path.join(weight_dir, "weights_D.h5")
+
+if os.path.isfile(loss_file):
+    
+    loss = np.loadtxt(loss_file)
+    G.load_weights(G_weight_file)
+    D.load_weights(D_weight_file)
+    
+else:
+    
+    losses = np.zeros((num_epochs, 2))
+    
+#compile G
+G.compile_model(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+#compile D
+D.compile_model(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 #compile GD
-GD.compileModel(optimizer='sgd', loss='binary_crossentropy', metrics=['accuracy'])
-
-
-# In[19]:
-
-# %%time
-
-'''
-main loop
-'''
-
-stdscr = curses.initscr()
-curses.noecho()
-curses.cbreak()
+GD.compile_model(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
 start_time = time()
 
-for epoch in range(1, num_epochs+1):
+for epoch in range(num_epochs):
+    
+    if losses[epoch].any():
+        continue
         
     for minibatch in range(num_minibatches):
         
-        '''
-        train D
-        '''
+#         '''
+#         train D
+#         '''
 
         #get real data
         d_real_data = x_train[minibatch * minibatch_size : (minibatch + 1) * minibatch_size]
@@ -237,9 +263,9 @@ for epoch in range(1, num_epochs+1):
 #               batch_size=1, validation_split=0.0, verbose=0)
         d_loss = D.train_on_batch(d_data, d_targets)
         
-        '''
-        train G
-        '''
+#         '''
+#         train G
+#         '''
         
         #generate data from noise
         g_gen_input = np.random.uniform(-1, 1, size=(minibatch_size, g_input_size))
@@ -253,44 +279,58 @@ for epoch in range(1, num_epochs+1):
 #               batch_size=1, validation_split=0.0, verbose=0)
         g_loss = GD.train_on_batch(g_gen_input, g_targets)
         
-        print_progress(stdscr, epoch, num_epochs, minibatch, num_minibatches, start_time, g_loss, d_loss)
+        print_progress(epoch, num_epochs, minibatch, num_minibatches, start_time, g_loss, d_loss)
+        
+    #save losses
+    losses[epoch] = [g_loss[0], d_loss[0]]
+    np.savetxt(loss_file, losses)
+
+    #save weights
+    G.save_weights(G_weight_file)
+    D.save_weights(D_weight_file)
 
 print "\nDONE"
 
 
-# In[ ]:
+# In[123]:
 
-i = 5
-plt.imshow(x_train[i:i+1, 0])
+def combine_images(images):
+    
+    num_images, _, img_rows, img_cols = images.shape 
+    
+    num_images_cols = np.ceil(np.sqrt(num_images)).astype(np.int)
+    num_images_rows = np.ceil(num_images / num_images_cols).astype(np.int)
+    
+    combined_images = np.zeros((num_images_rows * img_rows, num_images_cols * img_cols))
+    
+    for i in range(num_images):
+        
+        c = i % num_images_cols
+        r = np.floor(i / num_images_cols).astype(np.int)
+        
+        combined_images[r * img_rows : (r + 1) * img_rows, c * img_cols : (c + 1) * img_cols] = images[i, 0]
+    
+    return combined_images
+
+
+# In[124]:
+
+num_samples = 25
+plt.imshow(combine_images(x_train[:num_samples]))
 plt.show()
 
 
-# In[17]:
+# In[125]:
 
-num_samples = 3
-
-gen_input = gi_sampler(num_samples, g_input_size)
+gen_input = np.random.uniform(-1, 1, size=(num_samples, g_input_size))
 forgery = G.model.predict(gen_input)
 
 # print np.mean(forgery)
 
-
-for i in range(num_samples):
-
-    plt.imshow(forgery[i ,0])
-    plt.show()
+plt.imshow(combine_images(forgery))
+plt.show()
 
 print D.model.predict(forgery)
-
-
-# In[18]:
-
-forgery[0,0]
-
-
-# In[40]:
-
-gi_sampler(num_samples, g_input_size)
 
 
 # In[ ]:

@@ -16,6 +16,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 
+# In[ ]:
+
+get_ipython().system(u'conda install Seaborn')
+
+
 # In[2]:
 
 #parameter settings
