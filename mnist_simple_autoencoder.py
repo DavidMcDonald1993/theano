@@ -11,6 +11,7 @@ from keras.layers import Input, Dense
 from keras.models import Model
 
 # this is the size of our encoded representations
+intermediate_dim = 256
 encoding_dim = 32  # 32 floats -> compression of factor 24.5, assuming the input is 784 floats
 
 # this is our input placeholder
@@ -34,7 +35,7 @@ decoder_layer = autoencoder.layers[-1]
 decoder = Model(input=encoded_input, output=decoder_layer(encoded_input))
 
 #perpixel binary crosss entropy loss
-autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy', metrics=['accuracy'])
+autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy')
 
 
 # In[5]:
@@ -48,11 +49,6 @@ x_train = x_train.astype('float32') / 255.
 x_test = x_test.astype('float32') / 255.
 x_train = x_train.reshape((len(x_train), np.prod(x_train.shape[1:])))
 x_test = x_test.reshape((len(x_test), np.prod(x_test.shape[1:])))
-
-
-# In[6]:
-
-encoder.predict(x_test)
 
 
 # In[6]:

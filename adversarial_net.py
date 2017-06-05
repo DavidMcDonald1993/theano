@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[72]:
+# In[1]:
 
 from __future__ import division
 
@@ -24,7 +24,7 @@ from keras import objectives
 from keras.datasets import mnist, cifar100
 
 
-# In[110]:
+# In[12]:
 
 class Generator:
     
@@ -61,19 +61,23 @@ class Generator:
         self.model.load_weights(file)
 
 
-# In[117]:
+# In[13]:
 
 class Discriminator:
     
     def __init__(self, output_size):
         self.model = Sequential()
-        self.model.add(Conv2D(filters=32, kernel_size=5, padding="same", use_bias=True,
-                                     input_shape=(1, img_rows, img_cols), activation="tanh", data_format="channels_first"))
+#         self.model.add(Conv2D(filters=32, kernel_size=5, padding="same", use_bias=True,
+#                                      input_shape=(1, img_rows, img_cols), activation="tanh", data_format="channels_first"))
         self.model.add(MaxPooling2D(pool_size=(2, 2)))
         self.model.add(Conv2D(filters=32, kernel_size=5, padding="same", use_bias=True,
                               activation="tanh", data_format="channels_first"))
+#         self.model.add(Conv2D(filters=32, kernel_size=5, padding="same", use_bias=True,
+#                       activation="tanh", data_format="channels_first"))
         self.model.add(MaxPooling2D(pool_size=(2, 2)))
-        self.model.add(Flatten())
+        self.model.add(Conv2D(filters=32, kernel_size=5, padding="same", use_bias=True,
+                      activation="tanh", data_format="channels_first"))
+        self.model.add(Reshape((64, 7, 7)))
         self.model.add(Dense(64 * 7 * 7, activation="tanh"))
         self.model.add(Dense(output_size, activation = "sigmoid"))
         
@@ -99,7 +103,7 @@ class Discriminator:
         self.model.load_weights(file)
 
 
-# In[118]:
+# In[14]:
 
 class GeneratorAndDiscriminator:
     
@@ -121,7 +125,7 @@ class GeneratorAndDiscriminator:
         return self.model.train_on_batch(X, Y)
 
 
-# In[119]:
+# In[15]:
 
 def print_progress(epoch, epochs, minibatch, minibatches, start_time, g_loss, d_loss):
     
@@ -147,7 +151,7 @@ def print_progress(epoch, epochs, minibatch, minibatches, start_time, g_loss, d_
     stdout.flush()
 
 
-# In[120]:
+# In[16]:
 
 # Model params
 g_input_size = 100    # Random noise dimension coming into generator, per output vector
@@ -158,7 +162,7 @@ nb_classes = 10
 img_rows, img_cols = 28, 28
 
 
-# In[121]:
+# In[17]:
 
 ##load mnist data
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -187,7 +191,7 @@ num_patterns = len(x_train)
 num_minibatches = int(num_patterns / minibatch_size)
 
 
-# In[122]:
+# In[18]:
 
 #construct generator
 G = Generator(g_input_size)
@@ -199,7 +203,7 @@ D = Discriminator(d_output_size)
 GD = GeneratorAndDiscriminator(G.get_model(), D.get_model())
 
 ##weight directory
-weight_dir = "mnist_weights"
+weight_dir = "mnist_weights_2"
 if not os.path.isdir(weight_dir):
     os.mkdir(weight_dir)
     
@@ -292,7 +296,7 @@ for epoch in range(num_epochs):
 print "\nDONE"
 
 
-# In[123]:
+# In[ ]:
 
 def combine_images(images):
     
@@ -313,14 +317,14 @@ def combine_images(images):
     return combined_images
 
 
-# In[124]:
+# In[10]:
 
 num_samples = 25
 plt.imshow(combine_images(x_train[:num_samples]))
 plt.show()
 
 
-# In[125]:
+# In[11]:
 
 gen_input = np.random.uniform(-1, 1, size=(num_samples, g_input_size))
 forgery = G.model.predict(gen_input)
