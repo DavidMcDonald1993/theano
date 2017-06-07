@@ -15,10 +15,10 @@ from keras.layers.pooling import MaxPooling2D
 from keras.models import Model, Sequential
 from keras import backend as K
 from keras import objectives
-from keras.datasets import mnist, cifar100
+from keras.datasets import mnist
 
 
-# In[110]:
+# In[2]:
 
 # use the sampled latent points to generate new latent points z in the latent space
 def sampling(args):
@@ -31,14 +31,14 @@ def sampling(args):
 def vae_loss(x, x_decoded_mean):
     
     # cross entropy term (reconstruction error)
-#     xent_loss = original_dim * objectives.binary_crossentropy(x, x_decoded_mean)
-    xent_loss = original_dim * objectives.mean_squared_error(x, x_decoded_mean)
+    xent_loss = original_dim * objectives.binary_crossentropy(x, x_decoded_mean)
+#     xent_loss = objectives.mean_squared_error(x, x_decoded_mean)
     
     # KL-divergence term (regularization term)
-    kl_loss = - 0.5 * K.mean(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)  
+    kl_loss = - 0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)  
     
     # sum both terms
-    return xent_loss + kl_loss
+    return K.mean(xent_loss + kl_loss)
 
 # apply all layers in a list
 def h_apply(h_l, x):
@@ -48,7 +48,7 @@ def h_apply(h_l, x):
     return y
 
 
-# In[111]:
+# In[3]:
 
 # train vae model on mnist data
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -76,7 +76,7 @@ x_train = x_train.reshape((len(x_train), np.prod(x_train.shape[1:])))
 x_test = x_test.reshape((len(x_test), np.prod(x_test.shape[1:])))
 
 
-# In[112]:
+# In[4]:
 
 # encoder network to map real inputs to latent space
 x = Input(shape=(original_dim,))
@@ -97,14 +97,14 @@ z_mean = Dense(units=latent_dim)(h_apply(h, x))
 z_log_var = Dense(units=latent_dim)(h_apply(h, x))
 
 
-# In[113]:
+# In[5]:
 
 # generate latent points (lambda function layer)
 z = Lambda(function=sampling, output_shape=(latent_dim,))([z_mean, z_log_var])
 # z = Dense(2)(h_apply(h, x))
 
 
-# In[114]:
+# In[6]:
 
 # map sampled latent points back to reconstructed points
 # we instantiate these layers separately so as to reuse them later
@@ -127,7 +127,7 @@ x_decoded_mean = h_apply(h_decoded, z)
 # x_decoded_mean = Flatten()(x_decoded_mean)
 
 
-# In[115]:
+# In[7]:
 
 # end-to-end autoencoder
 vae = Model(x, x_decoded_mean)
@@ -136,17 +136,17 @@ vae = Model(x, x_decoded_mean)
 vae.compile(optimizer="rmsprop", loss=vae_loss)
 
 
-# In[91]:
+# In[60]:
 
 # train model
 vae.fit(x_train, x_train,
         shuffle=True,
-        epochs=50,
+        epochs=100,
         batch_size=100,
-        validation_split=0.0, verbose=True)
+        validation_split=0.0, verbose=False)
 
 
-# In[92]:
+# In[61]:
 
 # build a model to project inputs on the latent space
 # encoder = Model(x, z_mean)
@@ -157,14 +157,14 @@ encoder = Model(x, z)
 x_test_encoded = encoder.predict(x_test, batch_size=batch_size)
 
 
-# In[93]:
+# In[62]:
 
 plt.figure(figsize=(15, 15))
 plt.scatter(x_test_encoded[:, 0], x_test_encoded[:, 1], c=y_test)
 plt.colorbar()
 
 
-# In[94]:
+# In[63]:
 
 # generator, from latent space to reconstructed inputs
 decoder_input = Input(shape=(latent_dim,))
@@ -174,7 +174,7 @@ _x_decoded_mean = h_apply(h_decoded, decoder_input)
 generator = Model(decoder_input, _x_decoded_mean)
 
 
-# In[95]:
+# In[64]:
 
 # from PIL import Image
 
@@ -212,7 +212,7 @@ plt.imshow(figure)
 # img.show()
 
 
-# In[109]:
+# In[74]:
 
 # generate sample according to prior
 z_sample = np.random.normal(loc=0, scale=1, size=(1,2))
@@ -221,73 +221,83 @@ generated_digit = generator.predict(z_sample).reshape(28, 28)
 plt.imshow(generated_digit)
 
 
-# In[46]:
+# In[3]:
 
 import networkx as nx
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-# In[89]:
+# In[4]:
 
 # G = nx.karate_club_graph()
 # G = nx.read_gml("dolphins_labelled.gml")
-G = nx.read_gml("embedded_polbooks.gml")
-# G = nx.read_gml("embedded_yeast_union.gml")
+G = nx.read_gml("embedded_karate.gml")
+# G = nx.read_gml("embedded_football.gml")
+# G = nx.read_gml("embedded_yeast_uetz.gml")
 # G = nx.read_gpickle("embedded_yeast_union.gpickle")
 # G = nx.read_gpickle("embedded_yeast_reactome.gpickle")
 # G = nx.read_gpickle("hierarchical_benchmark.gpickle")
 G = max(nx.connected_component_subgraphs(G), key=len)
 
 
-# In[90]:
+# In[20]:
 
 A = np.array(nx.adj_matrix(G).todense())
+D = A.sum(axis=1)
 
 S1 = A
-S2 = cosine_similarity(A)
+S2 = cosine_similarity(S1)
+S3 = cosine_similarity(S2)
 
-S = S1 + 0 * S2
-S /= np.max(S)
+S = (1 * np.identity(len(A)) + 1 * S1 + 1 * S2 + 0 * S3)
+S /= S.max()
 
 
-# In[91]:
+# In[21]:
+
+S
+
+
+# In[22]:
 
 num_samples, original_dim = A.shape
-batch_size = 1
+batch_size = 15
 latent_dim = 2
-intermediate_dims = [256]
+intermediate_dims = [128, 32]
 epsilon_std = 1
 
 
-# In[92]:
+# In[23]:
 
 x = Input(batch_shape=(batch_size, original_dim))
 
 h = []
-for i in range(len(intermediate_dims)):
-    h.append(Dense(intermediate_dims[i], activation='relu'))
+for i in intermediate_dims:
+    h.append(Dense(i, activation='relu'))
 
 z_mean = Dense(latent_dim)(h_apply(h, x))
 z_log_var = Dense(latent_dim)(h_apply(h, x))
 
 
-# In[93]:
+# In[24]:
 
 #generate latent points (lambda function layer)
 z = Lambda(sampling, output_shape=(latent_dim,))([z_mean, z_log_var])
 
 
-# In[94]:
+# In[25]:
 
 h_decoded = []
-for i in range(len(intermediate_dims)):
-    h_decoded.append(Dense(intermediate_dims[-1-i], activation='relu'))
+for i in intermediate_dims[::-1]:
+    h_decoded.append(Dense(i, activation='relu'))
 
-decoder_mean = Dense(original_dim, activation='sigmoid')
-x_decoded_mean = decoder_mean(h_apply(h_decoded, z))
+# output layer
+h_decoded.append(Dense(original_dim, activation='sigmoid'))
+
+x_decoded_mean = h_apply(h_decoded, z)
 
 
-# In[95]:
+# In[26]:
 
 # end-to-end autoencoder
 vae = Model(x, x_decoded_mean)
@@ -296,17 +306,17 @@ vae = Model(x, x_decoded_mean)
 vae.compile(optimizer="adam", loss=vae_loss)
 
 
-# In[102]:
+# In[37]:
 
 # train model
 vae.fit(S, S,
         shuffle=True,
-        epochs=10,
+        epochs=10000,
         batch_size=batch_size,
-        validation_split=0, verbose=True)
+        validation_split=0, verbose=False)
 
 
-# In[103]:
+# In[38]:
 
 # build a model to project inputs on the latent space
 encoder = Model(x, z_mean)
@@ -315,17 +325,16 @@ encoder = Model(x, z_mean)
 S_encoded = encoder.predict(S, batch_size=batch_size)
 
 
-# In[106]:
+# In[39]:
 
 polbooks_colour_map = {"c" : "r", "l" : "b", "n" : "g"}
 
 
-# In[108]:
+# In[40]:
 
 plt.figure(figsize=(15, 15))
 
-
-# for label, i, j in zip(G.nodes(), S_encoded[:, 0], S_encoded[:, 1]):
+# for label, i, j in zip(A.sum(axis=1), S_encoded[:, 0], S_encoded[:, 1]):
 #     plt.annotate(
 #         label,
 #         xy=(i, j), xytext=(-20, 20),
@@ -333,44 +342,219 @@ plt.figure(figsize=(15, 15))
 #         bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
 #         arrowprops=dict(arrowstyle = '->', connectionstyle='arc3,rad=0'))
 
-# nodes = np.array(G.nodes())
-# for n1, n2 in G.edges():
-#     i, = np.where(nodes == n1)
-#     j, = np.where(nodes == n2)
-#     plt.plot(S_encoded[(i, j), 0], S_encoded[(i, j), 1], c="k", 
+nodes = np.array(G.nodes())
+for n1, n2 in G.edges():
+    i, = np.where(nodes == n1)
+    j, = np.where(nodes == n2)
+    plt.plot(S_encoded[(i, j), 0], S_encoded[(i, j), 1], c="k", 
 #              linewidth = 3 * np.exp(- np.linalg.norm(S_encoded[i] - S_encoded[j]) ** 2 / (2 * 0.5 ** 2) ))
+             linewidth = 0.3)
     
 plt.scatter(S_encoded[:, 0], 
         S_encoded[:, 1], 
-#             c=["b" if v=="Mr. Hi" else "r" for v in nx.get_node_attributes(G, "club").values()],
+            c=["b" if v=="Mr. Hi" else "r" for v in nx.get_node_attributes(G, "club").values()],
 #             c=nx.get_node_attributes(G, "value").values(),
-            c = [polbooks_colour_map[k] for k in nx.get_node_attributes(G,"value").values()],
+#             c = [polbooks_colour_map[k] for k in nx.get_node_attributes(G,"value").values()],
 #             c=nx.get_node_attributes(G, "group").values(), 
 #             c="k",
-            s=100)
+            s=50* A.sum(axis=1))
+
+c1 = plt.Circle((0,0), radius=1, fill=False)
+c2 = plt.Circle((0,0), radius=2, fill=False)
+c3 = plt.Circle((0,0), radius=3, fill=False)
+
+ax = plt.gca()
+ax.add_artist(c1)
+ax.add_artist(c2)
+ax.add_artist(c3)
 
 
-# In[109]:
+# In[32]:
+
+# generator, from latent space to reconstructed inputs
+decoder_input = Input(shape=(latent_dim,))
+# _h_decoded = decoder_h(decoder_input)
+# _x_decoded_mean = decoder_mean(_h_decoded)
+_x_decoded_mean = h_apply(h_decoded, decoder_input)
+generator = Model(decoder_input, _x_decoded_mean)
+
+
+# In[33]:
+
+S_decoded = generator.predict(S_encoded)
+
+
+# In[34]:
+
+S[0]
+
+
+# In[35]:
+
+S_decoded[0]
+
+
+# In[61]:
+
+num_samples = 100000
+# generate sample according to prior
+z_samples = np.random.normal(loc=0, scale=1, size=(num_samples, latent_dim))
+# print z_sample
+generated_nodes = generator.predict(z_samples)
+# plt.imshow(generated_nodes, cmap="hot")
+
+
+# In[62]:
+
+consensus = np.zeros(A.shape)
+
+for i in range(num_samples):
+    
+    for j in range(len(G)):
+        
+        p = generated_nodes[i, j]
+        
+        consensus[j, :] += p * generated_nodes[i]
+        consensus[:, j] += p * generated_nodes[i]
+        
+consensus /= consensus.max()
+
+
+# In[481]:
+
+consensus = np.zeros(A.shape)
+
+for pair in generated_nodes.argsort()[:,-2:]:
+    
+    consensus[pair[0], pair[1]] += 1
+    consensus[pair[1], pair[0]] += 1
+    
+consensus /= consensus.max()
+
+
+# In[65]:
+
+consensus[consensus < 0.5] = 0
+
+
+# In[31]:
+
+S[0]
+
+
+# In[67]:
+
+zip(consensus[0], nx.get_node_attributes(G, "group").values())
+
+
+# In[464]:
+
+generated_nodes[generated_nodes < 1e-1] = 0
+
+
+# In[442]:
+
+generated_nodes[10]
+
+
+# In[448]:
+
+zip(nx.get_node_attributes(G, "club").values(), generated_nodes[50])
+
+
+# In[283]:
+
+combined = np.zeros((len(A) + num_samples, len(A) + num_samples))
+
+
+# In[292]:
+
+combined[:len(A), :len(A)] = A
+combined[len(A):, :len(A)] = generated_nodes
+combined[:len(A), len(A):] = generated_nodes.T
+
+
+# In[293]:
+
+H = nx.from_numpy_matrix(combined)
+
+
+# In[294]:
+
+nx.number_of_nodes(H)
+
+
+# In[295]:
+
+nx.draw(H, node_color=["r" if n < nx.number_of_nodes(G) else "b" for n in H.nodes()])
+
+
+# In[472]:
+
+consensus = np.zeros(A.shape)
+
+
+# In[473]:
+
+for node in generated_nodes:
+    
+    connected_nodes = np.where(node > 0)[0]
+    
+    for n1 in connected_nodes:
+        
+        for n2 in connected_nodes:
+            
+            consensus[n1, n2] += node[n1] * node[n2]
+
+consensus /= consensus.max()
+
+
+# In[474]:
+
+consensus[0]
+
+
+# In[471]:
+
+plt.imshow(consensus)
+
+
+# In[356]:
+
+generated_nodes.argmax(axis=1)
+
+
+# In[329]:
+
+a = np.array([[4,3,6,1],[5,4,1,2]])
+
+
+# In[335]:
+
+a.argsort(axis=1)[:,-2:]
+
+
+# In[49]:
 
 from sklearn.manifold import MDS
 
 
-# In[110]:
+# In[50]:
 
 mds = MDS(dissimilarity="precomputed", n_components=2, metric=True, max_iter=1000)
 
 
-# In[114]:
+# In[51]:
 
 D = nx.floyd_warshall_numpy(G)
 
 
-# In[116]:
+# In[52]:
 
 D_t = mds.fit_transform(D)
 
 
-# In[117]:
+# In[53]:
 
 plt.figure(figsize=(15, 15))
 plt.scatter(D_t[:, 0], 
