@@ -240,7 +240,7 @@ G = nx.read_gml("embedded_karate.gml")
 G = max(nx.connected_component_subgraphs(G), key=len)
 
 
-# In[20]:
+# In[6]:
 
 A = np.array(nx.adj_matrix(G).todense())
 D = A.sum(axis=1)
@@ -249,25 +249,25 @@ S1 = A
 S2 = cosine_similarity(S1)
 S3 = cosine_similarity(S2)
 
-S = (1 * np.identity(len(A)) + 1 * S1 + 1 * S2 + 0 * S3)
+S = (0 * np.identity(len(A)) + 1 * S1 + 0 * S2 + 0 * S3)
 S /= S.max()
 
 
-# In[21]:
+# In[7]:
 
 S
 
 
-# In[22]:
+# In[8]:
 
 num_samples, original_dim = A.shape
 batch_size = 15
 latent_dim = 2
-intermediate_dims = [128, 32]
+intermediate_dims = [32]
 epsilon_std = 1
 
 
-# In[23]:
+# In[9]:
 
 x = Input(batch_shape=(batch_size, original_dim))
 
@@ -279,13 +279,13 @@ z_mean = Dense(latent_dim)(h_apply(h, x))
 z_log_var = Dense(latent_dim)(h_apply(h, x))
 
 
-# In[24]:
+# In[10]:
 
 #generate latent points (lambda function layer)
 z = Lambda(sampling, output_shape=(latent_dim,))([z_mean, z_log_var])
 
 
-# In[25]:
+# In[11]:
 
 h_decoded = []
 for i in intermediate_dims[::-1]:
@@ -297,7 +297,7 @@ h_decoded.append(Dense(original_dim, activation='sigmoid'))
 x_decoded_mean = h_apply(h_decoded, z)
 
 
-# In[26]:
+# In[12]:
 
 # end-to-end autoencoder
 vae = Model(x, x_decoded_mean)
@@ -306,7 +306,7 @@ vae = Model(x, x_decoded_mean)
 vae.compile(optimizer="adam", loss=vae_loss)
 
 
-# In[37]:
+# In[18]:
 
 # train model
 vae.fit(S, S,
@@ -316,7 +316,7 @@ vae.fit(S, S,
         validation_split=0, verbose=False)
 
 
-# In[38]:
+# In[19]:
 
 # build a model to project inputs on the latent space
 encoder = Model(x, z_mean)
@@ -325,30 +325,30 @@ encoder = Model(x, z_mean)
 S_encoded = encoder.predict(S, batch_size=batch_size)
 
 
-# In[39]:
+# In[20]:
 
 polbooks_colour_map = {"c" : "r", "l" : "b", "n" : "g"}
 
 
-# In[40]:
+# In[23]:
 
 plt.figure(figsize=(15, 15))
 
-# for label, i, j in zip(A.sum(axis=1), S_encoded[:, 0], S_encoded[:, 1]):
-#     plt.annotate(
-#         label,
-#         xy=(i, j), xytext=(-20, 20),
-#         textcoords='offset points', ha='right', va='bottom',
-#         bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
-#         arrowprops=dict(arrowstyle = '->', connectionstyle='arc3,rad=0'))
+for label, i, j in zip(G.nodes(), S_encoded[:, 0], S_encoded[:, 1]):
+    plt.annotate(
+        label,
+        xy=(i, j), xytext=(-20, 20),
+        textcoords='offset points', ha='right', va='bottom',
+        bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
+        arrowprops=dict(arrowstyle = '->', connectionstyle='arc3,rad=0'))
 
-nodes = np.array(G.nodes())
-for n1, n2 in G.edges():
-    i, = np.where(nodes == n1)
-    j, = np.where(nodes == n2)
-    plt.plot(S_encoded[(i, j), 0], S_encoded[(i, j), 1], c="k", 
-#              linewidth = 3 * np.exp(- np.linalg.norm(S_encoded[i] - S_encoded[j]) ** 2 / (2 * 0.5 ** 2) ))
-             linewidth = 0.3)
+# nodes = np.array(G.nodes())
+# for n1, n2 in G.edges():
+#     i, = np.where(nodes == n1)
+#     j, = np.where(nodes == n2)
+#     plt.plot(S_encoded[(i, j), 0], S_encoded[(i, j), 1], c="k", 
+# #              linewidth = 3 * np.exp(- np.linalg.norm(S_encoded[i] - S_encoded[j]) ** 2 / (2 * 0.5 ** 2) ))
+#              linewidth = 0.3)
     
 plt.scatter(S_encoded[:, 0], 
         S_encoded[:, 1], 
